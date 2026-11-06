@@ -37,9 +37,9 @@ class Experiments(Module):
 
     def _arm_counts(self, ctx: WorkflowCtx, dim: str, since_minute: int, until_minute: int | None = None,
                     arms: list[str] | None = None) -> dict[str, tuple[int, int]]:
-        sql = (f"SELECT {COL[dim]}, SUM(eng), SUM(conn) FROM agg_eng WHERE wf=? AND day*24+hour>=?"
+        sql = (f"SELECT {COL[dim]}, SUM(eng), SUM(conn) FROM agg_eng WHERE wf=? AND day>=? AND day*24+hour>=?"
                + (" AND day*24+hour<?" if until_minute is not None else "") + f" GROUP BY {COL[dim]}")
-        args = [ctx.wf, since_minute // 60] + ([until_minute // 60] if until_minute is not None else [])
+        args = [ctx.wf, since_minute // 1440, since_minute // 60] + ([until_minute // 60] if until_minute is not None else [])
         out = {a: (int(e), int(c)) for a, e, c in self.s.q(sql, args)}
         if arms is not None:
             out = {a: out.get(a, (0, 0)) for a in arms}

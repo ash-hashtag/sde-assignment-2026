@@ -43,7 +43,7 @@ class Incidents(Module):
             return 0, 0, 0
         lo = keys[-1][0] * 24 + keys[-1][1]
         r = self.s.q("SELECT COALESCE(SUM(conn),0), COALESCE(SUM(flags),0), COALESCE(SUM(eng),0) FROM agg_qa "
-                     "WHERE wf=? AND prompt=? AND day*24+hour>=?", (ctx.wf, prompt, lo))[0]
+                     "WHERE wf=? AND day>=? AND prompt=? AND day*24+hour>=?", (ctx.wf, lo // 24, prompt, lo))[0]
         return r
 
     def _prompt_record(self, ctx: WorkflowCtx) -> dict[str, dict]:
@@ -194,7 +194,7 @@ class Incidents(Module):
     def _verify(self, ctx: WorkflowCtx, inc: dict, base: float):
         lo = inc["applied"] // 60
         r = self.s.q("SELECT COALESCE(SUM(conn),0), COALESCE(SUM(flags),0), COALESCE(SUM(eng),0) FROM agg_qa "
-                     "WHERE wf=? AND prompt=? AND day*24+hour>=?", (ctx.wf, inc["fix"], lo))[0]
+                     "WHERE wf=? AND day>=? AND prompt=? AND day*24+hour>=?", (ctx.wf, lo // 24, inc["fix"], lo))[0]
         c, f, e = r
         if c < 150:
             return

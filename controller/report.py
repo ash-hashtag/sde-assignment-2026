@@ -19,9 +19,9 @@ def _kpi(s: Store, wf: str, lo: int, hi: int) -> dict:
     """Pickup and engagement for calls in sim minutes [lo, hi), from hourly aggregates."""
     a, b = lo // 60, hi // 60
     dials, conn = s.q("SELECT COALESCE(SUM(dials),0), COALESCE(SUM(conn),0) FROM agg_pick WHERE wf=? "
-                      "AND day*24+hour>=? AND day*24+hour<?", (wf, a, b))[0]
+                      "AND day>=? AND day*24+hour>=? AND day*24+hour<?", (wf, a // 24, a, b))[0]
     c2, eng, flags = s.q("SELECT COALESCE(SUM(conn),0), COALESCE(SUM(eng),0), COALESCE(SUM(flags),0) FROM agg_qa "
-                         "WHERE wf=? AND day*24+hour>=? AND day*24+hour<?", (wf, a, b))[0]
+                         "WHERE wf=? AND day>=? AND day*24+hour>=? AND day*24+hour<?", (wf, a // 24, a, b))[0]
     return {"dials": dials, "pickup": round(conn / dials, 3) if dials else None,
             "engagement": round(eng / c2, 3) if c2 else None,
             "halluc_flag_rate": round(flags / c2, 4) if c2 else None}

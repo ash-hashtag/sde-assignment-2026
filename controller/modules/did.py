@@ -38,7 +38,8 @@ class DidHealth(Module):
         hi_abs = keys[0][0] * 24 + keys[0][1]
         lo_abs = keys[-1][0] * 24 + keys[-1][1]
         rows = self.s.q("SELECT day, hour, did, SUM(dials), SUM(conn) FROM agg_pick WHERE wf=? "
-                        "AND day*24+hour BETWEEN ? AND ? GROUP BY day, hour, did", (ctx.wf, lo_abs, hi_abs))
+                        "AND day>=? AND day*24+hour BETWEEN ? AND ? GROUP BY day, hour, did",
+                        (ctx.wf, lo_abs // 24, lo_abs, hi_abs))
         by_h: dict[tuple, dict[str, tuple[int, int]]] = {}
         for d, h, did, n, c in rows:
             by_h.setdefault((d, h), {})[did] = (n, c)
