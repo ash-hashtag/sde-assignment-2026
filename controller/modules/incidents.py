@@ -2,7 +2,8 @@
 
 Detection compares hallucination flags on the *current* prompt over short and long windows (QA_WINDOWS_HOURS) of
 dialling with the workflow's normal flag rate (learned from history). It fires only when the count is at least
-QA_MIN_FLAGS, at least QA_MIN_RATIO x normal, and has a Poisson tail probability below QA_P_VALUE. The flag is
+QA_MIN_FLAGS, at least QA_MIN_RATIO x normal, and has a Poisson tail probability below QA_P_VALUE (a much lower
+bar, QA_*_RECENT, applies within 24h of a prompt change, which is where regressions come from). The flag is
 an imperfect detector with a false-positive floor, which the baseline absorbs.
 
 Fix selection, cheapest first:

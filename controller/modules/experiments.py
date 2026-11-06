@@ -13,8 +13,9 @@ Design
     last 24 dialling hours still agree (a winner that is already fading is not promoted). P(best) across all arms
     is the multiple-comparison guard: one decision per dimension, not one test per arm.
   * Promotion keeps HOLDOUT_SHARE on the previous option. The holdout is how decay is detected: when the
-    posterior over the trailing window says the winner is now worse than the holdout with P >= P_DECAY_ROLLBACK,
-    roll back (urgent; auto-applied in max_shift steps where policy allows).
+    posterior over the trailing window says the winner is now worse than the holdout with P >= P_DECAY_ROLLBACK on
+    DECAY_CONFIRMATIONS consecutive checks DECAY_CHECK_EVERY_HOURS apart, roll back (urgent; auto-applied in
+    max_shift steps where policy allows). Checking every tick with a single look rolled back real winners on noise.
   * Every change here is customer-facing, so it always goes to a human, even where policy would allow auto-apply.
     Rollbacks are the exception: they reduce risk and may auto-apply where permitted.
 """
@@ -205,10 +206,22 @@ class Experiments(Module):
         counts = self._arm_counts(ctx, exp["dim"], since, arms=[w, h])
         if counts[h][1] < S.MIN_HOLDOUT_CONN:
             return
+        last = exp.get("last_monitor")
+        if ctx.now - exp["live_since"] < S.DECAY_CHECK_EVERY_HOURS * 60:
+            return   # the promotion itself needs time to produce evidence
+        if not ctx.in_window() or (last is not None and ctx.now - last < S.DECAY_CHECK_EVERY_HOURS * 60):
+            return   # checks only while dialling: overnight the window just slides, it gains no data
+        exp["last_monitor"] = ctx.now
         res = compare_arms(counts, h)
         exp["last_eval"] = {"at": ctx.now, "arms": res}
         p_worse = 1 - res[w]["p_beats_incumbent"]
-        if p_worse >= S.P_DECAY_ROLLBACK:
+        exp["worse_streak"] = exp.get("worse_streak", 0) + 1 if p_worse >= S.P_DECAY_ROLLBACK else 0
+        if exp["worse_streak"] == 1:
+            self.s.decide(ctx.now, ctx.wf, "experiment_decay_suspected",
+                          f"{exp['id']}: {w} {res[w]['lift']:+.1%} vs holdout {h} over the last "
+                          f"{S.DECAY_WINDOW_HOURS}h (P(worse)={p_worse:.2f}); confirming at the next check",
+                          {"arms": res}, ref=exp["id"])
+        if exp["worse_streak"] >= S.DECAY_CONFIRMATIONS:
             exp["decayed"].append(w)
             exp.update(phase="rollback", target={h: 1.0}, rolled_back=ctx.now, incumbent=h, live_since=None)
             self.s.decide(ctx.now, ctx.wf, "experiment_decay",

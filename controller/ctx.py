@@ -67,11 +67,14 @@ class WorkflowCtx:
         return int(r or 0)
 
     def hour_keys(self, hours_back: int) -> list[tuple[int, int]]:
-        """(day, hour) buckets of the last `hours_back` *dialling* hours, newest first, including the current one."""
+        """(day, hour) buckets covering the last `hours_back` *complete* dialling hours plus the current, partial one,
+        newest first. (At 13:00 the 13h bucket is empty, so "the last hour" must reach back to 12h.)"""
         lo, hi = self.window
         out = []
         h_abs = self.now // 60
-        while len(out) < hours_back and h_abs > self.now // 60 - 24 * 14:
+        cur = divmod(h_abs, 24)
+        want = hours_back + (1 if lo <= cur[1] < hi else 0)
+        while len(out) < want and h_abs > self.now // 60 - 24 * 14:
             d, h = divmod(h_abs, 24)
             if lo <= h < hi:
                 out.append((d, h))

@@ -24,7 +24,9 @@ P_BEATS_INCUMBENT = 0.975          # ... and that it beats the incumbent
 P_LOSER_DROP = 0.025               # arms this unlikely to beat the incumbent are dropped at the next request
 MAX_EXPLORE_DAYS = 4.0             # after this many days live, stop exploring and keep the best-supported arm
 HOLDOUT_SHARE = 0.15               # after promotion the previous option keeps this share, to detect decay
-P_DECAY_ROLLBACK = 0.9             # posterior P(winner < holdout) on the trailing window that triggers rollback
+P_DECAY_ROLLBACK = 0.95            # posterior P(winner < holdout) on the trailing window ...
+DECAY_CONFIRMATIONS = 2            # ... on this many consecutive checks ...
+DECAY_CHECK_EVERY_HOURS = 6        # ... spaced this far apart (a real decay persists, noise doesn't)
 DECAY_WINDOW_HOURS = 36            # trailing window (dialling hours count, wall-clock hours of sim time)
 MIN_HOLDOUT_CONN = 120
 SUPERVISOR_LOCK_HOURS = 48         # after a supervisor edits a dimension we leave it alone this long
@@ -40,8 +42,9 @@ DID_REBALANCE_EVERY_HOURS = 6
 
 # Hallucination incidents
 QA_WINDOWS_HOURS = (1, 3, 12)      # short window catches a sudden spike, long one a slow rise
-QA_MIN_FLAGS = 8
-QA_P_VALUE = 1e-4                  # Poisson tail probability vs the workflow's baseline flag rate
+QA_MIN_FLAGS = 10
+QA_P_VALUE = 1e-6                  # Poisson tail vs the workflow's normal flag rate, when no prompt changed
+                                   # (~150 correlated looks/day/workflow: 1e-4 produced a false incident on public_02)
 QA_MIN_RATIO = 2.0
 QA_MIN_FLAGS_RECENT = 6            # within 24h of a prompt change
 QA_P_VALUE_RECENT = 1e-3
