@@ -182,12 +182,14 @@ class Experiments(Module):
 
         Reverting to the incumbent throws away what we learned (and is itself harmful when a challenger was
         quietly better). Instead traffic is split in proportion to each arm's posterior probability of being best,
-        dropping arms below 10%: an undecided experiment settles on the arms the evidence favours, and the
+        keeping only the incumbent and challengers more likely than not to beat it, and dropping arms below 10%
+        P(best): an undecided experiment settles on the arms the evidence favours, and the
         allocation still carries comparison traffic so a later look can conclude. No arm is called a winner.
         """
         survivors = [a for a in (res or {}) if a not in exp["dropped"]]
         if res and len(survivors) > 1:
-            keep = {a: res[a]["p_best"] for a in survivors if res[a]["p_best"] >= 0.10}
+            keep = {a: res[a]["p_best"] for a in survivors if res[a]["p_best"] >= 0.10
+                    and (a == exp["incumbent"] or res[a]["p_beats_incumbent"] >= 0.5)}
             target = normalise_dist(keep) if keep else {exp["incumbent"]: 1.0}
         else:
             target = {exp["incumbent"]: 1.0}

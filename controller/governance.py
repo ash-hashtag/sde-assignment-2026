@@ -29,6 +29,7 @@ import logging
 
 from . import settings as S
 from .client import SimClient
+from .faults import crashpoint
 from .ctx import WorkflowCtx
 from .intents import (Intent, apply_intents, blend, changed_dims, dist_for, get_path, max_shift, same_value)
 from .simtime import MIN_PER_DAY, fmt
@@ -118,6 +119,7 @@ class Governance:
                 return
         self._set(pid, status="applying")
         r = self.c.post(f"/workflows/{ctx.wf}/apply", {"approval_id": a["approval_id"]})
+        crashpoint("after_apply_post")
         with self.s.tx():
             if r.ok:
                 v = r.body["version"]
@@ -225,6 +227,7 @@ class Governance:
         r = self.c.put(f"/workflows/{ctx.wf}/config", {"proposal_id": pid, "base_version": ctx.version,
                                                        "proposed_config": new, "rationale": rationale,
                                                        "evidence": evidence})
+        crashpoint("after_auto_put")
         with self.s.tx():
             if r.ok:
                 v = r.body["version"]
@@ -309,7 +312,9 @@ class Governance:
                  json.dumps([i.to_json() for i in intents]),
                  json.dumps({k: v for k, v in body.items() if k != "proposed_config"}, default=str),
                  json.dumps(new), ctx.now))
+        crashpoint("before_approval_post")
         r = self.c.post("/approvals", body)
+        crashpoint("after_approval_post")
         with self.s.tx():
             if r.ok:
                 self._set(pid, status="pending", approval_id=r.body["approval_id"])

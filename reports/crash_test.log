@@ -1,0 +1,31 @@
+# crash test 2026-11-06T21:33:21+05:30: scenarios/public_02_incidents.yaml, injected crash points then 4 random SIGKILLs
+crashpoint mid_ingest hit #40: exiting
+  -> crashed at mid_ingest:40, sim at 2027-01-04T18:30:00+05:30; restarting
+crashpoint after_auto_put hit #1: exiting
+  -> crashed at after_auto_put:1, sim at 2027-01-05T14:00:00+05:30; restarting
+crashpoint before_approval_post hit #1: exiting
+  -> crashed at before_approval_post:1, sim at 2027-01-05T14:15:00+05:30; restarting
+crashpoint after_approval_post hit #2: exiting
+  -> crashed at after_approval_post:2, sim at 2027-01-05T15:30:00+05:30; restarting
+crashpoint after_apply_post hit #1: exiting
+  -> crashed at after_apply_post:1, sim at 2027-01-05T17:30:00+05:30; restarting
+crashpoint after_auto_put hit #3: exiting
+  -> crashed at after_auto_put:3, sim at 2027-01-06T11:00:00+05:30; restarting
+crashpoint after_approval_post hit #3: exiting
+  -> crashed at after_approval_post:3, sim at 2027-01-08T10:00:00+05:30; restarting
+crashpoint after_apply_post hit #2: exiting
+  -> crashed at after_apply_post:2, sim at 2027-01-08T15:15:00+05:30; restarting
+kill 1: SIGKILL at sim 2027-01-09T17:00:00+05:30
+kill 2: SIGKILL at sim 2027-01-10T10:30:00+05:30
+kill 3: SIGKILL at sim 2027-01-11T20:15:00+05:30
+kill 4: SIGKILL at sim 2027-01-12T20:15:00+05:30
+final restart, running to completion
+[PASS] scenario finished — 2027-01-14T00:00:00+05:30
+[PASS] no approval applied twice — 12 applied
+[PASS] no auto-apply sent twice — 11 auto-applied
+[PASS] every simulator approval is known to the store — missing: []
+[PASS] store agrees with simulator on decided approvals — {}
+[PASS] no approval lapsed unintentionally — []
+[PASS] every chunk ingested exactly once — 491/491
+[PASS] event count matches — 324341/324341
+[PASS] aggregates count every call once — 245032/245032

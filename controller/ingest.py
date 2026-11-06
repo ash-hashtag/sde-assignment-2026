@@ -12,6 +12,7 @@ import time
 from collections import defaultdict
 
 from .client import SimClient
+from .faults import crashpoint
 from .simtime import Clock, MIN_PER_DAY
 from .store import Store
 
@@ -150,6 +151,7 @@ class Ingestor:
             db.executemany("INSERT INTO agg_qa VALUES (?,?,?,?,?,?,?) ON CONFLICT DO UPDATE SET "
                            "conn = conn + excluded.conn, flags = flags + excluded.flags, eng = eng + excluded.eng",
                            [(*k, *v) for k, v in qa.items()])
+            crashpoint("mid_ingest")
             db.executemany("INSERT OR IGNORE INTO call_log VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", calls)
             db.executemany("INSERT OR IGNORE INTO sim_events VALUES (?,?,?,?,?)", sim_events)
             db.executemany("INSERT INTO config_versions (wf, version, actor, changed_dims, applied_minute, "
