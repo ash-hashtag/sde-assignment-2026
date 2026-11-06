@@ -160,7 +160,7 @@ class Experiments(Module):
         if all(c[1] >= S.MIN_HOLDOUT_CONN for c in recent.values()):
             rres = compare_arms(recent, inc)
             dropped += [a for a in rres if a != inc and a not in dropped
-                        and rres[a]["p_beats_incumbent"] <= 1 - S.P_DECAY_ROLLBACK]
+                        and rres[a]["p_beats_incumbent"] <= S.P_RECENT_LOSER_DROP]
         for a in dropped:
             exp["dropped"][a] = {"at": ctx.now, "stats": res[a]}
         if dropped:

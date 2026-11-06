@@ -57,7 +57,8 @@ class Incidents(Module):
         prompt = ctx.config["prompt_version"]
         inc = st.get("open")
         if inc is None:
-            if ctx.in_window():
+            inc = self._check_unvalidated_change(ctx, st, prompt, credits)
+            if inc is None and ctx.in_window():
                 inc = self._detect(ctx, prompt, base)
                 if inc:
                     st = self.load(ctx.wf)
@@ -67,6 +68,35 @@ class Incidents(Module):
                 return []
         return self._advance(ctx, st, inc, prompt, base, credits)
 
+    def _check_unvalidated_change(self, ctx: WorkflowCtx, st: dict, prompt: str, credits: float) -> dict | None:
+        """A supervisor's prompt edit bypasses the validation every governed prompt change needs. Validate it once,
+        straight away (2 credits): if it would fail the client's own approval bar, that is population-level evidence
+        (VALIDATION_N synthetic conversations) hours before production flags accumulate."""
+        sup = ctx.supervisor_dims.get("prompt_version")
+        if sup is None or st.get("validated_change") == sup or ctx.now - sup > 24 * 60:
+            return None
+        st["validated_change"] = sup
+        self.save(ctx.wf, st)
+        if credits < 2:
+            return None
+        v = self._validate(ctx, prompt)
+        min_pass = ctx.gov.get("min_validation_pass_rate", 0.97)
+        if not v or v["pass_rate"] >= min_pass:
+            return None
+        inc = {"id": f"inc-{ctx.wf}-{ctx.now}", "bad_prompt": prompt, "opened": ctx.now, "phase": "detected",
+               "evidence": {"source": "validation of a supervisor prompt change", "validation_run_id":
+                            v["validation_run_id"], "n": v["n"], "pass_rate": v["pass_rate"], "min_pass": min_pass,
+                            "rate": round(1 - v["pass_rate"], 4), "connected": v["n"], "flags": v["failures"],
+                            "expected": None, "p_value": None},
+               "tried": [prompt], "llm_used": False, "supervisor_change_at": sup}
+        self.s.decide(ctx.now, ctx.wf, "incident_opened",
+                      f"supervisor prompt change to {prompt} at {fmt(sup)} fails validation: pass rate "
+                      f"{v['pass_rate']:.3f} on n={v['n']} vs the client's minimum {min_pass}",
+                      inc["evidence"], ref=inc["id"])
+        st["open"] = inc
+        self.save(ctx.wf, st)
+        return inc
+
     def _detect(self, ctx: WorkflowCtx, prompt: str, base: float) -> dict | None:
         # A prompt that changed in the last 24h is where regressions come from, so it is watched with a lower bar
         # (still population-level: several flags and a small tail probability).
@@ -74,8 +104,16 @@ class Incidents(Module):
                             "'%prompt_version%'", (ctx.wf,))
         recent = changed is not None and ctx.now - changed <= 24 * 60
         min_flags, p_max = (S.QA_MIN_FLAGS_RECENT, S.QA_P_VALUE_RECENT) if recent else (S.QA_MIN_FLAGS, S.QA_P_VALUE)
-        for hours in S.QA_WINDOWS_HOURS:
-            c, f, _ = self._window(ctx, prompt, hours)
+        windows: list = list(S.QA_WINDOWS_HOURS)
+        if recent:
+            windows.append("since_change")   # every call on this prompt since it went live: the most data there is
+        for hours in windows:
+            if hours == "since_change":
+                lo = changed // 60
+                c, f, _ = self.s.q("SELECT COALESCE(SUM(conn),0), COALESCE(SUM(flags),0), 0 FROM agg_qa WHERE wf=? "
+                                   "AND day>=? AND prompt=? AND day*24+hour>=?", (ctx.wf, lo // 24, prompt, lo))[0]
+            else:
+                c, f, _ = self._window(ctx, prompt, hours)
             e = c * base
             if f >= min_flags and e > 0 and f / e >= S.QA_MIN_RATIO and poisson_sf(f, e) < p_max:
                 inc = {"id": f"inc-{ctx.wf}-{ctx.now}", "bad_prompt": prompt, "opened": ctx.now, "phase": "detected",
@@ -141,7 +179,7 @@ class Incidents(Module):
             else:
                 if not inc["llm_used"] and credits >= 3 + 2:
                     r = self.c.post("/llm/suggest-fixes", {"workflow_id": ctx.wf, "problem": (
-                        f"hallucination flag rate {inc['evidence']['rate']:.1%} on prompt {inc['bad_prompt']} "
+                        f"hallucination rate {inc['evidence']['rate']:.1%} on prompt {inc['bad_prompt']} "
                         f"vs normal {base:.1%}")})
                     inc["llm_used"] = True
                     if r.ok:
@@ -171,23 +209,29 @@ class Incidents(Module):
         halluc_now = inc["evidence"]["rate"]
         halluc_fix = (good.get("flags", 0) + 1) / (good.get("conn", 0) + 100) if good else None
         sup = inc.get("supervisor_change_at")
-        summary = (f"Revert prompt {inc['bad_prompt']} -> {inc['fix']}: hallucination flags at "
-                   f"{halluc_now:.1%} vs normal {base:.1%}"
+        ev = inc["evidence"]
+        if ev.get("validation_run_id"):
+            what = (f"{inc['bad_prompt']} fails validation: pass rate {ev['pass_rate']:.3f} on n={ev['n']} "
+                    f"({ev['validation_run_id']}) vs your minimum {ev['min_pass']}")
+            why = f"Incident {inc['id']}: {what}; it reached production without validation. "
+        else:
+            what = f"hallucination flags at {halluc_now:.1%} vs normal {base:.1%}"
+            why = (f"Incident {inc['id']}: {ev['flags']} hallucination flags in {ev['connected']} connected calls on "
+                   f"{inc['bad_prompt']} (p={ev['p_value']:.1e} against the normal rate). ")
+        summary = (f"Revert prompt {inc['bad_prompt']} -> {inc['fix']}: {what}"
                    + (f" (reverses a supervisor change made at {fmt(sup)})" if sup is not None else ""))
         return [Intent(
             source="incident", path=["prompt_version"], value=inc["fix"], urgent=True, auto="never",
             summary=summary,
-            rationale=(f"Incident {inc['id']}: {inc['evidence']['flags']} hallucination flags in "
-                       f"{inc['evidence']['connected']} connected calls on {inc['bad_prompt']} "
-                       f"(p={inc['evidence']['p_value']:.1e} against the normal rate). {inc['fix']} "
+            rationale=(why + f"{inc['fix']} "
                        + (f"ran {good['conn']} connected calls here at a {halluc_fix:.1%} flag rate and " if good else "")
                        + f"passed validation at {v['pass_rate']:.3f} (n={v['n']}, policy minimum {min_pass}). "
                        "After apply we verify flags return to normal and engagement does not drop."),
             dry_run={"method": "production flag rates per prompt in this workflow + validation run",
-                     "current": {"prompt": inc["bad_prompt"], "flag_rate": halluc_now, **bad},
+                     "current": {"prompt": inc["bad_prompt"], "evidence": ev, **bad},
                      "candidate": {"prompt": inc["fix"], "flag_rate": halluc_fix, **good},
                      "validation": {k: v[k] for k in ("validation_run_id", "n", "pass_rate")}},
-            impact=max(0.9, impact_score(ctx, (halluc_now - base) * vol["conn_per_day"])),
+            impact=max(0.9, impact_score(ctx, max(halluc_now - base, 0) * vol["conn_per_day"])),
             affected_leads=ctx.active_leads(), evidence={"validation_run_id": v["validation_run_id"]},
             ref=inc["id"])]
 

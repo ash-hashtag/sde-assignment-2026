@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from .. import settings as S
 from ..ctx import WorkflowCtx
-from ..intents import Intent, dist_for, normalise_dist, tv
+from ..intents import Intent, blend, dist_for, normalise_dist, tv
 from ..stats import ratio_z
 from .base import Module, daily_volume, impact_score
 
@@ -164,6 +164,17 @@ class DidHealth(Module):
 
     def _rebalance(self, ctx, st, dids, cur, probing):
         healthy = [d for d in ctx.options["caller_id"] if dids[d]["status"] == "healthy"]
+        pending = st.get("pending_rebalance")
+        if pending:
+            # keep asking for a computed target until it is live (governance may be waiting on quota, an approval in
+            # flight, or approver hours); recompute only once it is a day old
+            if tv(normalise_dist(pending["target"]), cur) < 1e-3:
+                st.pop("pending_rebalance")
+                st["last_rebalance"] = ctx.now
+                return None
+            if ctx.now - pending["at"] < 24 * 60 and all(d in healthy for d in pending["target"]):
+                return pending["target"], pending["reason"]
+            st.pop("pending_rebalance")
         last = st.get("last_rebalance")
         if not ctx.in_window() or len(healthy) < 2:
             return None
@@ -187,10 +198,19 @@ class DidHealth(Module):
         # where every change costs a human's attention, only move for a bigger difference
         min_tv = S.DID_REBALANCE_MIN_TV * (1 if ctx.auto_allowed("caller_id") else 2)
         if tv(cand, cur) < min_tv:
+            st["last_rebalance"] = ctx.now
             return None
-        st["last_rebalance"] = ctx.now
-        return cand, ("rebalance load across healthy caller IDs by measured pickup ("
-                      + ", ".join(f"{d} {ratios[d]:.2f}" for d in healthy) + ")")
+        if ctx.auto_allowed("caller_id"):
+            # one policy-sized step per rebalance cycle, so it stays an auto-apply instead of using a human's slot;
+            # the 6h cadence means this is not a chain of steps around max_shift
+            limit = float((ctx.gov.get("auto_apply") or {}).get("max_shift", 0))
+            shift = tv(cand, cur)
+            if limit > 0 and shift > limit:
+                cand = blend(cur, cand, limit / shift * 0.99)
+        reason = ("rebalance load across healthy caller IDs by measured pickup ("
+                  + ", ".join(f"{d} {ratios[d]:.2f}" for d in healthy) + ")")
+        st["pending_rebalance"] = {"target": cand, "reason": reason, "at": ctx.now}
+        return cand, reason
 
     def _intent(self, ctx, cur, target, reason, urgent, dids) -> Intent:
         stats = self._stats(ctx, 24)

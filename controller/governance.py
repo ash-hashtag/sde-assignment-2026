@@ -264,7 +264,10 @@ class Governance:
         ttl_min = ctx.gov["proposal_ttl_hours"] * 60
         same_day = m + lat_max <= hi * 60
         next_open_ok = (MIN_PER_DAY - m + lo * 60) <= ttl_min
-        if not (same_day or next_open_ok):
+        # if policy makes a guaranteed decision impossible (latency longer than the working day and a short TTL),
+        # the first hour of the approver day is the best chance there is
+        first_hour = m < (start + 1) * 60
+        if not (same_day or next_open_ok or first_hour):
             return False, "a decision could land after expiry"
         used, limit = self.quota(ctx)
         allowed = limit if urgent else max(limit - S.RESERVED_URGENT_SLOTS, 1 if limit >= 1 else 0)

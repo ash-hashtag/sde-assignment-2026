@@ -22,9 +22,12 @@ MIN_CONN_PER_ARM = 300             # connected calls per arm before any decision
 P_BEST_TO_PROMOTE = 0.95           # posterior probability the challenger is the best arm
 P_BEATS_INCUMBENT = 0.975          # ... and that it beats the incumbent
 P_LOSER_DROP = 0.025               # arms this unlikely to beat the incumbent are dropped at the next request
+P_RECENT_LOSER_DROP = 0.05         # ... or this unlikely over the trailing DECAY_WINDOW_HOURS (fading arms)
 MAX_EXPLORE_DAYS = 4.0             # after this many days live, stop exploring and keep the best-supported arm
-HOLDOUT_SHARE = 0.15               # after promotion the previous option keeps this share, to detect decay
-P_DECAY_ROLLBACK = 0.95            # posterior P(winner < holdout) on the trailing window ...
+HOLDOUT_SHARE = 0.20               # after promotion the previous option keeps this share, to detect decay
+P_DECAY_ROLLBACK = 0.90            # posterior P(winner < holdout) on the trailing window ...
+                                   # (scripts/decay_monitor_sim.py: 20%/0.9/2 catches 86% of decays,
+                                   #  4.7% false rollback of a real +5% winner; 15%/0.95/2 caught 54%)
 DECAY_CONFIRMATIONS = 2            # ... on this many consecutive checks ...
 DECAY_CHECK_EVERY_HOURS = 6        # ... spaced this far apart (a real decay persists, noise doesn't)
 DECAY_WINDOW_HOURS = 36            # trailing window (dialling hours count, wall-clock hours of sim time)
