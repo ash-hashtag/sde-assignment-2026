@@ -1,6 +1,6 @@
 # Outcome-First Agent Loop — Submission
 
-**Name:** Sri Pranav Tene · **Date:** 2026-11-09 · **Hours actually spent:** ~2.5 h of AI-assisted build time with Claude Code (6 Nov 20:49–22:40, 7 Nov 09:35–10:00 IST) · **Language / storage:** Python 3.11+ (httpx, numpy) / SQLite (WAL), no other services
+**Name:** Sri Pranav Tene · **Date:** 2026-11-09 · **Hours actually spent:** ~8 h across several iterations, AI-assisted with Claude Code (6–9 Nov) · **Language / storage:** Python 3.11+ (httpx, numpy) / SQLite (WAL), no other services
 
 ---
 
