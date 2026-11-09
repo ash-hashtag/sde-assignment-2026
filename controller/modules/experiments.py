@@ -101,6 +101,13 @@ class Experiments(Module):
             return None
 
         live = same_value(cur, exp["target"])
+        if live and exp["phase"] == "closing" and exp.get("watch"):
+            w = exp["watch"]
+            exp.update(phase="exploit", live_since=ctx.now, promoted_decision=ctx.now, evidence=exp["close_res"], **w)
+            self.s.decide(ctx.now, ctx.wf, "experiment_settled",
+                          f"{exp['id']}: {dim} settled on {exp['target']}; watching {w['winner']} against holdout "
+                          f"{w['holdout']} for decay", ref=exp["id"])
+            return None
         if live and exp["phase"] in ("rollback", "closing"):
             exp["phase"] = "closed"
             self.s.decide(ctx.now, ctx.wf, "experiment_settled", f"{exp['id']}: {dim} settled on {exp['target']}",
@@ -222,8 +229,11 @@ class Experiments(Module):
         keeping only the incumbent and challengers more likely than not to beat it, and dropping arms below 10%
         P(best): an undecided experiment settles on the arms the evidence favours, and the
         allocation still carries comparison traffic so a later look can conclude. No arm is called a winner.
-        A settled allocation is not monitored like a promotion, so an arm that is behind the incumbent over the
-        trailing DECAY_WINDOW_HOURS is left out too: all-time data flatters an effect that is fading.
+        An arm that is behind the incumbent over the trailing DECAY_WINDOW_HOURS is left out too: all-time data
+        flatters an effect that is fading. A settle that moves the lead away from the incumbent is a promotion in all
+        but name, so it gets a promotion's protection: the incumbent keeps at least HOLDOUT_SHARE, and once live the
+        leader is watched against it for decay exactly like a declared winner (an undecided test once settled a
+        fading W2 at 100% with nothing watching it).
         """
         survivors = [a for a in (res or {}) if a not in exp["dropped"]]
         if res and len(survivors) > 1:
@@ -240,9 +250,17 @@ class Experiments(Module):
                 exp["last_eval"] = {"at": ctx.now, "arms": rres, "window": "recent"}   # the dry run prices this
         else:
             target = {exp["incumbent"]: 1.0}
+        inc, lead, watch = exp["incumbent"], max(target, key=target.get), None
+        if lead != inc and res:
+            if target.get(inc, 0) < S.HOLDOUT_SHARE:
+                rest = {a: p for a, p in target.items() if a != inc}
+                tot = sum(rest.values())
+                target = normalise_dist({**{a: p / tot * (1 - S.HOLDOUT_SHARE) for a, p in rest.items()},
+                                         inc: S.HOLDOUT_SHARE})
+            watch = {"winner": lead, "holdout": inc}
         # removing traffic from options that lost is worth a request on its own; re-weighting a draw is not
         exp.update(phase="closing", target=target, closed=ctx.now, live_since=None,
-                   piggyback=len(survivors) > 1)
+                   piggyback=len(survivors) > 1, watch=watch, close_res=res)
         self.s.decide(ctx.now, ctx.wf, "experiment_closed", f"{exp['id']} closed: {why}; settle on {target}",
                       {"arms": res or counts}, ref=exp["id"])
 

@@ -63,3 +63,16 @@ SCHEDULE_GAMMA = 2.0               # sharpening of relative hour preference
 SCHEDULE_MIN_WEIGHT = 0.2
 SCHEDULE_MIN_SEGMENT_SHARE = 0.03  # segments smaller than this fold into default
 SCHEDULE_REFIT_HOURS = 24
+
+# What-if runs without a code change: CONTROLLER_SETTINGS='{"MAX_CHALLENGER_SHARE": 0.15}' overrides any constant above
+# (used by scripts/sweep.py --set). Unknown names fail loudly rather than silently doing nothing.
+def _apply_overrides():
+    import json
+    import os
+    for k, v in json.loads(os.environ.get("CONTROLLER_SETTINGS") or "{}").items():
+        if k not in globals() or k.startswith("_"):
+            raise SystemExit(f"CONTROLLER_SETTINGS: unknown setting {k}")
+        globals()[k] = v
+
+
+_apply_overrides()

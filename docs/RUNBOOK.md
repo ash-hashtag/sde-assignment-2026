@@ -12,11 +12,17 @@ scripts/run_scenario.sh scenarios/public_02_incidents.yaml 8702   # sim + contro
 scripts/crash_test.sh scenarios/public_02_incidents.yaml 6 8790   # kill/restart test (crash points + SIGKILLs), verified
 scripts/ablation.sh scenarios/public_01_dev.yaml did 8721         # one module off: what is that lever worth?
 python tests/scenarios/make_variants.py                         # rebuild the hidden-like test scenarios
+python scripts/sweep.py --label mine --seeds 5               # every scenario x 5 seeds: mean ± sd, harmful changes
+python scripts/sweep.py --label what_if --set '{"MAX_CHALLENGER_SHARE": 0.15}'   # same, with a setting changed
 .venv/bin/python -m pytest -q tests                    # unit + contract tests (in-process simulator)
 ```
 
 `CONTROLLER_MODULES=incidents,did` (comma list; default all four) runs a subset of modules. Use it for ablations, or to
 switch a misbehaving lever off without a deploy: the switched-off module proposes nothing and leaves its dimension as is.
+
+`CONTROLLER_SETTINGS='{"NAME": value}'` overrides any constant in `controller/settings.py` for one run (unknown
+names fail at start-up). **Judge a change with `scripts/sweep.py`, not one run:** a single run swings ±3 points of
+lift, and harmful changes are rare enough that one run says nothing about them.
 
 Restarting is always safe: `./run.sh` against the same simulator resumes from the store. A store that belongs to a
 different simulator world (other scenario, or time went backwards) is renamed `*.old-<ts>` and a fresh one starts.
