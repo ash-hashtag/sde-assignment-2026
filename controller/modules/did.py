@@ -37,27 +37,30 @@ class DidHealth(Module):
             return {}
         hi_abs = keys[0][0] * 24 + keys[0][1]
         lo_abs = keys[-1][0] * 24 + keys[-1][1]
-        rows = self.s.q("SELECT day, hour, did, SUM(dials), SUM(conn) FROM agg_pick WHERE wf=? "
-                        "AND day>=? AND day*24+hour BETWEEN ? AND ? GROUP BY day, hour, did",
+        rows = self.s.q("SELECT day, hour, cday, did, SUM(dials), SUM(conn) FROM agg_pick WHERE wf=? "
+                        "AND day>=? AND day*24+hour BETWEEN ? AND ? GROUP BY day, hour, cday, did",
                         (ctx.wf, lo_abs // 24, lo_abs, hi_abs))
+        # strata = (hour, campaign day): within a stratum every caller ID reaches the same kind of lead
         by_h: dict[tuple, dict[str, tuple[int, int]]] = {}
-        for d, h, did, n, c in rows:
-            by_h.setdefault((d, h), {})[did] = (n, c)
+        for d, h, cd, did, n, c in rows:
+            by_h.setdefault((d, h, cd), {})[did] = (n, c)
         out: dict[str, dict] = {}
         for dids in by_h.values():
             tn = sum(n for n, _ in dids.values())
             tc = sum(c for _, c in dids.values())
             for did, (n, c) in dids.items():
                 on, oc = tn - n, tc - c
-                o = out.setdefault(did, {"dials": 0, "conn": 0, "expected": 0.0})
+                o = out.setdefault(did, {"dials": 0, "conn": 0, "expected": 0.0, "compared": 0, "other_dials": 0})
                 o["dials"] += n
                 o["conn"] += c
-                if on > 0:
+                if on > 0:   # only strata where some other number also dialled can be compared
                     o["expected"] += n * oc / on
+                    o["compared"] += c
+                    o["other_dials"] += on
         for o in out.values():
-            e = o["expected"]
-            o["ratio"] = (o["conn"] + 5) / (e + 5) if e > 0 else None   # mild shrinkage toward 1
-            o["z"] = ratio_z(o["conn"], e) if e > 0 else 0.0
+            e, c = o["expected"], o.pop("compared")
+            o["ratio"] = (c + 5) / (e + 5) if e > 0 else None   # mild shrinkage toward 1
+            o["z"] = ratio_z(c, e) if e > 0 else 0.0
             o["expected"] = round(e, 1)
         return out
 
@@ -67,10 +70,11 @@ class DidHealth(Module):
                 o = self._stats(ctx, h).get(d)
                 if not o or o["ratio"] is None:
                     continue
-                if not (o["ratio"] < S.DID_DEGRADED_RATIO and o["z"] < S.DID_DEGRADED_Z):
+                if o["other_dials"] < 200 or not (o["ratio"] < S.DID_DEGRADED_RATIO and o["z"] < S.DID_DEGRADED_Z):
                     continue
                 prev = self._stats(ctx, 12, skip=h).get(d)
-                prev_ratio = prev["ratio"] if prev and prev["ratio"] and prev["expected"] >= 30 else None
+                prev_ratio = (prev["ratio"] if prev and prev["ratio"] and prev["expected"] >= 30
+                              and prev["other_dials"] >= 200 else None)
                 if prev_ratio is not None and o["ratio"] / prev_ratio > 0.75:
                     continue   # persistently lower, not a new flag: rebalancing handles it
                 dids[d] = {"status": "degraded", "since": ctx.now,
@@ -83,17 +87,20 @@ class DidHealth(Module):
                 break
 
     def _judge_probes(self, ctx: WorkflowCtx, dids: dict) -> None:
-        stats = self._stats(ctx, 24)
         for d, info in list(dids.items()):
             if info["status"] != "probing":
                 continue
-            o = stats.get(d)
-            if not o or o["dials"] < S.DID_PROBE_MIN_DIALS or o["ratio"] is None:
+            # everything since the probe started (a 5% probe on a small workflow gets ~10 dials an hour)
+            hours = max(1, min(96, (ctx.now - info["since"]) // 60))
+            o = self._stats(ctx, hours).get(d)
+            if not o or o["dials"] < S.DID_PROBE_EARLY_DIALS or o["ratio"] is None:
                 continue
             r = o["ratio"]
             if r < 0.7 and o["z"] < -3:
                 verdict = "degraded"
-            elif r >= 0.8 or o["dials"] >= 3 * S.DID_PROBE_MIN_DIALS:
+            elif r >= 0.85 and o["z"] > -1:
+                verdict = "healthy"            # clearly fine: no need to wait for the full sample
+            elif o["dials"] >= S.DID_PROBE_MIN_DIALS and (r >= 0.8 or o["dials"] >= 3 * S.DID_PROBE_MIN_DIALS):
                 verdict = "healthy" if r >= 0.7 else "degraded"
             else:
                 continue

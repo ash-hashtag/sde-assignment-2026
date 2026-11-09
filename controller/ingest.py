@@ -97,7 +97,7 @@ class Ingestor:
                 atom = pa.get(ev["person_id"], 0)
                 v = ev["variant"]
                 conn = ev["connected"]
-                p = pick[(wf, day, hour, atom, v["caller_id"])]
+                p = pick[(wf, day, hour, atom, v["caller_id"], ev["campaign_day_index"])]
                 p[0] += 1
                 if conn:
                     p[1] += 1
@@ -142,7 +142,7 @@ class Ingestor:
                            "VALUES (?,?,?,?,?)", campaigns)
             db.executemany("UPDATE campaigns SET concluded = concluded + ? WHERE campaign_id = ?",
                            [(k, cid) for cid, k in concluded.items()])
-            db.executemany("INSERT INTO agg_pick VALUES (?,?,?,?,?,?,?) ON CONFLICT DO UPDATE SET "
+            db.executemany("INSERT INTO agg_pick VALUES (?,?,?,?,?,?,?,?) ON CONFLICT DO UPDATE SET "
                            "dials = dials + excluded.dials, conn = conn + excluded.conn",
                            [(*k, v[0], v[1]) for k, v in pick.items()])
             db.executemany("INSERT INTO agg_eng VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT DO UPDATE SET "

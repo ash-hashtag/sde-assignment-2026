@@ -33,10 +33,11 @@ CREATE TABLE IF NOT EXISTS campaigns (
   campaign_id TEXT PRIMARY KEY, wf TEXT, day INTEGER, leads INTEGER, config_version INTEGER,
   concluded INTEGER DEFAULT 0);
 
--- pickup: who was dialled when, from which caller ID
+-- pickup: who was dialled when, from which caller ID, on which day of their campaign (fresh leads pick up more
+-- than retries, and on next_campaign_only workflows a new caller ID only reaches fresh campaigns at first)
 CREATE TABLE IF NOT EXISTS agg_pick (
-  wf TEXT, day INTEGER, hour INTEGER, atom INTEGER, did TEXT, dials INTEGER, conn INTEGER,
-  PRIMARY KEY (wf, day, hour, atom, did));
+  wf TEXT, day INTEGER, hour INTEGER, atom INTEGER, did TEXT, cday INTEGER, dials INTEGER, conn INTEGER,
+  PRIMARY KEY (wf, day, hour, atom, did, cday));
 
 -- engagement: connected calls by the variant they actually ran with
 CREATE TABLE IF NOT EXISTS agg_eng (

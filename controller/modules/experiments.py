@@ -111,6 +111,8 @@ class Experiments(Module):
             self.s.decide(ctx.now, ctx.wf, "experiment_live", f"{exp['id']} {exp['phase']} allocation live: "
                           f"{exp['target']}", ref=exp["id"])
         if not live:
+            if exp["phase"] == "exploit" and ctx.now - exp["promoted_decision"] >= S.STALE_PROMOTION_HOURS * 60:
+                self._recheck_promotion(ctx, exp, cur)
             return self._intent(ctx, exp, cur)
         if exp["phase"] == "explore":
             self._evaluate_explore(ctx, exp)
@@ -127,7 +129,8 @@ class Experiments(Module):
         inc = exp["incumbent"]
         if any(c[1] < S.MIN_CONN_PER_ARM for c in counts.values()):
             if ctx.now - exp["live_since"] > S.MAX_EXPLORE_DAYS * 1440:
-                self._close(ctx, exp, counts, "ran out of time before every arm had enough calls")
+                self._close(ctx, exp, counts, "ran out of time before every arm had enough calls",
+                            compare_arms(counts, inc) if all(c[1] > 0 for c in counts.values()) else None)
             return
         res = compare_arms(counts, inc)
         exp["last_eval"] = {"at": ctx.now, "arms": res}
@@ -177,6 +180,28 @@ class Experiments(Module):
             self._close(ctx, exp, counts, f"{inc} is best (P={res[inc]['p_best']:.3f})", res)
         elif ctx.now - exp["live_since"] > S.MAX_EXPLORE_DAYS * 1440:
             self._close(ctx, exp, counts, "no arm reached the promotion bar in time; keeping the incumbent", res)
+
+    def _recheck_promotion(self, ctx: WorkflowCtx, exp: dict, cur: dict):
+        """The decision is old (the request was stale, rejected or slow): does the winner still win recently?"""
+        w, h = exp["winner"], exp["holdout"]
+        recent = self._arm_counts(ctx, exp["dim"], ctx.now - S.DECAY_WINDOW_HOURS * 60, arms=[w, h])
+        if any(c[1] < S.MIN_HOLDOUT_CONN for c in recent.values()):
+            exp["promoted_decision"] = ctx.now   # not enough recent data to say; look again later
+            return
+        rr = compare_arms(recent, h)
+        if rr[w]["p_beats_incumbent"] >= 0.6:
+            exp["promoted_decision"] = ctx.now
+            exp["evidence"] = {**exp["evidence"], w: {**exp["evidence"][w], "recheck": rr[w]}}
+            return
+        # back to exploring from where the allocation actually is; the faded arm is out
+        exp["decayed"].append(w)
+        challengers = [a for a in exp["arms"] if a not in (h, w) and a not in exp["dropped"] and a not in exp["decayed"]]
+        exp.update(phase="explore", incumbent=h, target=self._explore_target(h, challengers),
+                   live_since=None, winner=None)
+        self.s.decide(ctx.now, ctx.wf, "experiment_recheck_failed",
+                      f"{exp['id']}: promotion of {w} was never applied, and over the last {S.DECAY_WINDOW_HOURS}h it "
+                      f"no longer beats {h} (lift {rr[w]['lift']:+.1%}, P={rr[w]['p_beats_incumbent']:.2f}); "
+                      f"withdrawing it", {"recent": rr}, ref=exp["id"])
 
     def _close(self, ctx, exp, counts, why, res=None):
         """End exploration without a declared winner.

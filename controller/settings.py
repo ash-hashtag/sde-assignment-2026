@@ -32,6 +32,7 @@ DECAY_CONFIRMATIONS = 2            # ... on this many consecutive checks ...
 DECAY_CHECK_EVERY_HOURS = 6        # ... spaced this far apart (a real decay persists, noise doesn't)
 DECAY_WINDOW_HOURS = 36            # trailing window (dialling hours count, wall-clock hours of sim time)
 MIN_HOLDOUT_CONN = 120
+STALE_PROMOTION_HOURS = 12         # a promotion not live this long after its decision is re-checked on recent data
 SUPERVISOR_LOCK_HOURS = 48         # after a supervisor edits a dimension we leave it alone this long
 
 # Caller ID health
@@ -39,7 +40,8 @@ DID_WINDOW_HOURS = 6               # trailing dialling hours used for health
 DID_DEGRADED_RATIO = 0.5           # pickup ratio vs the other caller IDs below which a number in use is pulled
 DID_DEGRADED_Z = -4.0              # ... and the deficit must be this significant (population, not anecdote)
 DID_PROBE_SHARE = 0.05             # share given to an untested caller ID while it is evaluated
-DID_PROBE_MIN_DIALS = 250          # dials on a probe before it is judged
+DID_PROBE_MIN_DIALS = 250          # dials on a probe before an ambiguous one is judged
+DID_PROBE_EARLY_DIALS = 120        # ... a clearly healthy or clearly bad one can be judged from this many
 DID_REBALANCE_MIN_TV = 0.1         # don't churn the allocation for small differences
 DID_REBALANCE_EVERY_HOURS = 6
 
