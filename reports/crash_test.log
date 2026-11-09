@@ -1,30 +1,45 @@
-# crash test 2026-11-06T22:24:15+05:30: scenarios/public_02_incidents.yaml, injected crash points then 4 random SIGKILLs
+# crash test 2026-11-09T11:05:17+05:30: scenarios/public_02_incidents.yaml
+
+## pass A: injected crash points
 crashpoint mid_ingest hit #40: exiting
-  -> crashed at mid_ingest:40, sim at 2027-01-04T18:30:00+05:30; restarting
+  -> ran with mid_ingest:40, sim at 2027-01-04T18:30:00+05:30; restarting
 crashpoint after_auto_put hit #1: exiting
-  -> crashed at after_auto_put:1, sim at 2027-01-05T14:00:00+05:30; restarting
+  -> ran with after_auto_put:1, sim at 2027-01-05T09:00:00+05:30; restarting
 crashpoint before_approval_post hit #1: exiting
-  -> crashed at before_approval_post:1, sim at 2027-01-05T14:15:00+05:30; restarting
+  -> ran with before_approval_post:1, sim at 2027-01-05T14:30:00+05:30; restarting
 crashpoint after_approval_post hit #2: exiting
-  -> crashed at after_approval_post:2, sim at 2027-01-05T15:00:00+05:30; restarting
+  -> ran with after_approval_post:2, sim at 2027-01-06T10:30:00+05:30; restarting
 crashpoint after_apply_post hit #1: exiting
-  -> crashed at after_apply_post:1, sim at 2027-01-05T16:45:00+05:30; restarting
+  -> ran with after_apply_post:1, sim at 2027-01-06T12:15:00+05:30; restarting
 crashpoint after_auto_put hit #3: exiting
-  -> crashed at after_auto_put:3, sim at 2027-01-06T11:00:00+05:30; restarting
-crashpoint after_approval_post hit #3: exiting
-  -> crashed at after_approval_post:3, sim at 2027-01-08T11:15:00+05:30; restarting
-crashpoint after_apply_post hit #2: exiting
-  -> crashed at after_apply_post:2, sim at 2027-01-09T19:15:00+05:30; restarting
-kill 1: SIGKILL at sim 2027-01-10T20:30:00+05:30
-kill 2: SIGKILL at sim 2027-01-11T19:30:00+05:30
-kill 3: controller had already finished
+  -> ran with after_auto_put:3, sim at 2027-01-12T15:00:00+05:30; restarting
+  -> ran with after_approval_post:3, sim at 2027-01-14T00:00:00+05:30; restarting
+  -> ran with after_apply_post:2, sim at 2027-01-14T00:00:00+05:30; restarting
 final restart, running to completion
 [PASS] scenario finished — 2027-01-14T00:00:00+05:30
-[PASS] no approval applied twice — 9 applied
-[PASS] no auto-apply sent twice — 11 auto-applied
+[PASS] no approval applied twice — 12 applied
+[PASS] no auto-apply sent twice — 12 auto-applied
 [PASS] every simulator approval is known to the store — missing: []
 [PASS] store agrees with simulator on decided approvals — {}
 [PASS] no approval lapsed unintentionally — []
 [PASS] every chunk ingested exactly once — 491/491
-[PASS] event count matches — 324338/324338
+[PASS] event count matches — 324345/324345
+[PASS] aggregates count every call once — 245032/245032
+
+## pass B: 6 random SIGKILLs
+kill 1: SIGKILL at sim 2027-01-04T12:15:00+05:30
+kill 2: SIGKILL at sim 2027-01-05T11:15:00+05:30
+kill 3: SIGKILL at sim 2027-01-05T16:00:00+05:30
+kill 4: SIGKILL at sim 2027-01-05T19:30:00+05:30
+kill 5: SIGKILL at sim 2027-01-06T10:00:00+05:30
+kill 6: SIGKILL at sim 2027-01-06T12:30:00+05:30
+final restart, running to completion
+[PASS] scenario finished — 2027-01-14T00:00:00+05:30
+[PASS] no approval applied twice — 13 applied
+[PASS] no auto-apply sent twice — 12 auto-applied
+[PASS] every simulator approval is known to the store — missing: []
+[PASS] store agrees with simulator on decided approvals — {}
+[PASS] no approval lapsed unintentionally — []
+[PASS] every chunk ingested exactly once — 491/491
+[PASS] event count matches — 324345/324345
 [PASS] aggregates count every call once — 245032/245032
