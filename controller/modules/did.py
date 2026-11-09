@@ -95,13 +95,17 @@ class DidHealth(Module):
             o = self._stats(ctx, hours).get(d)
             if not o or o["dials"] < S.DID_PROBE_EARLY_DIALS or o["ratio"] is None:
                 continue
+            # A probe carries a few percent of the traffic while the numbers it is compared with carry the rest, and
+            # pickup falls with a number's volume (carrier spam scoring). So a good number on probe reads at or above
+            # its peers; one reading 85% of them while barely used gets worse once it carries real load.
             r = o["ratio"]
             if r < 0.7 and o["z"] < -3:
                 verdict = "degraded"
-            elif r >= 0.85 and o["z"] > -1:
+            elif r >= S.DID_PROBE_HEALTHY_RATIO + 0.05 and o["z"] > -1:
                 verdict = "healthy"            # clearly fine: no need to wait for the full sample
-            elif o["dials"] >= S.DID_PROBE_MIN_DIALS and (r >= 0.8 or o["dials"] >= 3 * S.DID_PROBE_MIN_DIALS):
-                verdict = "healthy" if r >= 0.7 else "degraded"
+            elif o["dials"] >= S.DID_PROBE_MIN_DIALS and (r >= S.DID_PROBE_HEALTHY_RATIO or r < 0.8
+                                                         or o["dials"] >= 3 * S.DID_PROBE_MIN_DIALS):
+                verdict = "healthy" if r >= S.DID_PROBE_HEALTHY_RATIO else "degraded"
             else:
                 continue
             dids[d] = {"status": verdict, "since": ctx.now, "evidence": o}

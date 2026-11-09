@@ -42,6 +42,7 @@ DID_DEGRADED_Z = -4.0              # ... and the deficit must be this significan
 DID_PROBE_SHARE = 0.05             # share given to an untested caller ID while it is evaluated
 DID_PROBE_MIN_DIALS = 250          # dials on a probe before an ambiguous one is judged
 DID_PROBE_EARLY_DIALS = 120        # ... a clearly healthy or clearly bad one can be judged from this many
+DID_PROBE_HEALTHY_RATIO = 0.9      # a barely-loaded probe must read this close to its loaded peers to join rotation
 DID_REBALANCE_MIN_TV = 0.1         # don't churn the allocation for small differences
 DID_REBALANCE_EVERY_HOURS = 6
 

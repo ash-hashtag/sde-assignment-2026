@@ -211,12 +211,22 @@ class Experiments(Module):
         keeping only the incumbent and challengers more likely than not to beat it, and dropping arms below 10%
         P(best): an undecided experiment settles on the arms the evidence favours, and the
         allocation still carries comparison traffic so a later look can conclude. No arm is called a winner.
+        A settled allocation is not monitored like a promotion, so an arm that is behind the incumbent over the
+        trailing DECAY_WINDOW_HOURS is left out too: all-time data flatters an effect that is fading.
         """
         survivors = [a for a in (res or {}) if a not in exp["dropped"]]
         if res and len(survivors) > 1:
+            inc = exp["incumbent"]
+            recent = self._arm_counts(ctx, exp["dim"], max(exp["live_since"], ctx.now - S.DECAY_WINDOW_HOURS * 60),
+                                      arms=survivors)
+            rres = compare_arms(recent, inc) if all(c[1] >= S.MIN_HOLDOUT_CONN for c in recent.values()) else None
             keep = {a: res[a]["p_best"] for a in survivors if res[a]["p_best"] >= 0.10
-                    and (a == exp["incumbent"] or res[a]["p_beats_incumbent"] >= 0.5)}
-            target = normalise_dist(keep) if keep else {exp["incumbent"]: 1.0}
+                    and (a == inc or (res[a]["p_beats_incumbent"] >= 0.5
+                                      and (rres is None or rres[a]["p_beats_incumbent"] >= 0.5)))}
+            target = normalise_dist(keep) if keep else {inc: 1.0}
+            if rres:
+                res = {a: {**res[a], "recent_p_beats_incumbent": rres[a]["p_beats_incumbent"]} for a in res}
+                exp["last_eval"] = {"at": ctx.now, "arms": rres, "window": "recent"}   # the dry run prices this
         else:
             target = {exp["incumbent"]: 1.0}
         # removing traffic from options that lost is worth a request on its own; re-weighting a draw is not
@@ -299,7 +309,10 @@ class Experiments(Module):
             rationale = (f"{exp['id']}: no option reached the promotion bar; traffic follows each option's "
                          f"probability of being best, dropping unlikely ones.")
             impact, urgent, auto = impact_score(ctx, extra), False, "never"
+        # a settle that only re-weights a draw rides along with other requests; one that moves expected engagement
+        # by >= 1% is worth a slot of its own (waiting for a ride left a fading arm at 25% for days)
+        material = exp_old > 0 and abs(exp_new - exp_old) >= 0.01 * exp_old
         return Intent(source="experiment", path=["allocations", "default", dim], value=target, summary=summary,
                       rationale=rationale, dry_run=dry, impact=impact, affected_leads=int(affected), urgent=urgent,
-                      auto=auto, step_ok=urgent, piggyback=phase == "closing" and exp.get("piggyback", True),
-                      ref=exp["id"])
+                      auto=auto, step_ok=urgent,
+                      piggyback=phase == "closing" and exp.get("piggyback", True) and not material, ref=exp["id"])
