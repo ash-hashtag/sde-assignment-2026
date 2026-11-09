@@ -39,7 +39,7 @@ Edited directly by the client's supervisor (bypasses governance). Controller res
 - D3 16:30 experiment_winner: exp-ks_cancel-welcome_message-1: W2 beats W1 on engagement (P(best)=0.952, lift +10.9% [+3.3%, +18.9%], n=1027); promote with 20% holdout on W1
 - D4 08:00 experiment_drop: exp-ks_cancel-voice-2: dropping V2 (P(beats V1) <= 0.025)
 - D4 13:15 applied: apr_00010 applied as v10
-- D5 12:45 applied: apr_00013 applied as v11
+- D5 13:00 applied: apr_00013 applied as v11
 
 ```
 
@@ -66,7 +66,7 @@ $ python -m controller why --wf nw_renewal --at 'D5 12:00'
 - D5 09:00 experiment_decay: exp-nw_renewal-welcome_message-1: W3 has stopped winning: over the last 36h it is -18.5% vs holdout W1 (P(worse)=1.00); rolling back to W1
 - D5 12:00 experiment_settled: exp-nw_renewal-welcome_message-1: welcome_message settled on {'W1': 1.0}
 
-**What happened next** (24h before → 24h after): pickup 0.289 → 0.286, engagement 0.507 → 0.572, hallucination flags 0.0192 → 0.0155
+**What happened next** (24h before → 24h after): pickup 0.289 → 0.291, engagement 0.507 → 0.587, hallucination flags 0.0192 → 0.0191
 - D5 15:00 auto_applied: v12: rebalance load across healthy caller IDs by measured pickup (D1 1.00, D2 1.02, D3 1.00, D4 0.95)
 
 ```
@@ -103,11 +103,11 @@ $ python -m controller view --wf ks_cancel
 # Supervisor view — D10 00:00
 
 ## ks_cancel
-Today: pickup None (yesterday 0.239), engagement None (yesterday 0.517), 0 dials
+Today: pickup None (yesterday 0.257), engagement None (yesterday 0.521), 0 dials
 
 **Testing / winning**
-- voice: closed, allocation {'V3': 1.0}, leading: V3 (P(best)=0.71, lift +4.0%)
-- welcome_message: exploit, allocation {'W1': 0.199951171875, 'W2': 0.800048828125}, leading: W2 (P(best)=0.78, lift +4.6%)
+- voice: exploit, allocation {'V1': 0.199951171875, 'V3': 0.800048828125}, leading: V3 (P(best)=0.98, lift +12.4%)
+- welcome_message: exploit, allocation {'W1': 0.199951171875, 'W2': 0.800048828125}, leading: W2 (P(best)=0.50, lift +0.1%)
 - caller IDs: D1=healthy, D2=degraded, D3=healthy
 **Waiting on you:** nothing
 **Changed in the last 24h**
@@ -119,9 +119,9 @@ Today: pickup None (yesterday 0.239), engagement None (yesterday 0.517), 0 dials
 $ python -m controller health
 # Controller health — last tick D10 00:00
 - ingested through: D9 21:00 (lag vs last tick: 180 sim minutes)
-- chunks: 491, events: 324345, ingest 62,771 events/s
-- controller era: 324,345 events, ingest 5.2s + decide 30.9s over 10.0 sim days (49s wall, 5s wall per sim day)
-- peak decide time per tick: 0.18s, peak RSS 223 MB
+- chunks: 491, events: 324345, ingest 62,754 events/s
+- controller era: 324,345 events, ingest 5.2s + decide 31.5s over 10.0 sim days (49s wall, 5s wall per sim day)
+- peak decide time per tick: 0.18s, peak RSS 226 MB
 - credits: 200 → 196
 - decisions: approval_requested=14, approval_approved=13, applied=13, auto_applied=12, experiment_live=8, experiment_planned=6, did_probe_healthy=5, experiment_settled=5, experiment_drop=4, experiment_closed=4, schedule_fit=3, experiment_winner=2, supervisor_edit=2, validation_run=2, did_degraded=1, incident_opened=1, incident_fix_live=1, incident_resolved=1, experiment_decay_suspected=1, experiment_decay=1, approval_rejected=1
 

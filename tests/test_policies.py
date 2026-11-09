@@ -114,8 +114,8 @@ def test_no_recheck_while_the_promotion_waits_for_the_approver(store):
     assert exp["phase"] == "exploit" and exp["winner"] == "W2"
 
 
-@pytest.mark.parametrize("w2_engaged, withdrawn", [(100, False), (80, True)])   # neutral keeps; contrary withdraws
-def test_recheck_withdraws_only_when_recent_evidence_points_against(store, w2_engaged, withdrawn):
+@pytest.mark.parametrize("w2_engaged, withdrawn", [(115, False), (100, True), (80, True)])
+def test_re_proposal_needs_the_recent_window_to_still_favour_the_winner(store, w2_engaged, withdrawn):
     m, decided = Experiments(store, None), 4 * DAY + 16 * 60
     now = decided + (S.STALE_PROMOTION_HOURS + 4) * 60
     eng(store, now - 3 * 60, "W1", 200, 100)

@@ -1,4 +1,4 @@
-# crash test 2026-11-09T11:05:17+05:30: scenarios/public_02_incidents.yaml
+# crash test 2026-11-09T13:38:08+05:30: scenarios/public_02_incidents.yaml
 
 ## pass A: injected crash points
 crashpoint mid_ingest hit #40: exiting
@@ -12,7 +12,7 @@ crashpoint after_approval_post hit #2: exiting
 crashpoint after_apply_post hit #1: exiting
   -> ran with after_apply_post:1, sim at 2027-01-06T12:15:00+05:30; restarting
 crashpoint after_auto_put hit #3: exiting
-  -> ran with after_auto_put:3, sim at 2027-01-12T15:00:00+05:30; restarting
+  -> ran with after_auto_put:3, sim at 2027-01-10T15:00:00+05:30; restarting
   -> ran with after_approval_post:3, sim at 2027-01-14T00:00:00+05:30; restarting
   -> ran with after_apply_post:2, sim at 2027-01-14T00:00:00+05:30; restarting
 final restart, running to completion
@@ -27,11 +27,11 @@ final restart, running to completion
 [PASS] aggregates count every call once — 245032/245032
 
 ## pass B: 6 random SIGKILLs
-kill 1: SIGKILL at sim 2027-01-04T12:15:00+05:30
-kill 2: SIGKILL at sim 2027-01-05T11:15:00+05:30
-kill 3: SIGKILL at sim 2027-01-05T16:00:00+05:30
-kill 4: SIGKILL at sim 2027-01-05T19:30:00+05:30
-kill 5: SIGKILL at sim 2027-01-06T10:00:00+05:30
+kill 1: SIGKILL at sim 2027-01-04T00:00:00+05:30
+kill 2: SIGKILL at sim 2027-01-04T00:00:00+05:30
+kill 3: SIGKILL at sim 2027-01-04T13:30:00+05:30
+kill 4: SIGKILL at sim 2027-01-05T11:30:00+05:30
+kill 5: SIGKILL at sim 2027-01-05T18:00:00+05:30
 kill 6: SIGKILL at sim 2027-01-06T12:30:00+05:30
 final restart, running to completion
 [PASS] scenario finished — 2027-01-14T00:00:00+05:30

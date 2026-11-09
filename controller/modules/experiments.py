@@ -198,9 +198,10 @@ class Experiments(Module):
 
     def _recheck_promotion(self, ctx: WorkflowCtx, exp: dict, cur: dict):
         """The decision is old and no request for it is pending (it was rejected, expired or went stale): before asking
-        again, does the winner still win recently? The trailing window holds a fraction of the evidence the promotion
-        rested on, so failing to re-confirm is not evidence of decay; only a window that points the other way
-        (P(beats) <= P_RECHECK_WITHDRAW) withdraws it."""
+        again, does the winner still win recently? Asking again is a fresh request to a human, so the recent window
+        must still favour it (P(beats) > P_RECHECK_WITHDRAW); otherwise the promotion is withdrawn rather than approved
+        on evidence that has gone stale (variant_a: a W2 promotion decided on D1 was applied on D5, after it faded).
+        This never runs while a request for it is with the approver: see _awaiting_approval."""
         w, h = exp["winner"], exp["holdout"]
         recent = self._arm_counts(ctx, exp["dim"], ctx.now - S.DECAY_WINDOW_HOURS * 60, arms=[w, h])
         if any(c[1] < S.MIN_HOLDOUT_CONN for c in recent.values()):

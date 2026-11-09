@@ -4,14 +4,14 @@
 
 | workflow | conclusion rate | Δ | pickup | Δ | engagement | Δ | engagement gap captured | hallucinated calls (base) |
 |---|---|---|---|---|---|---|---|---|
-| ks_cancel | 0.397 | +11.0% | 0.264 | +10.1% | 0.519 | +0.8% | -2% | 78 (195) |
-| nw_kyc | 0.403 | +14.0% | 0.268 | +10.0% | 0.577 | +2.2% | -35% | 30 (25) |
-| nw_renewal | 0.492 | +41.6% | 0.287 | +31.5% | 0.575 | +4.4% | 34% | 59 (42) |
-| ALL | 0.430 | +21.7% | 0.273 | +17.0% | 0.550 | +2.6% | 14% | 167 (262) |
+| ks_cancel | 0.400 | +11.6% | 0.265 | +10.6% | 0.520 | +0.9% | -7% | 87 (195) |
+| nw_kyc | 0.401 | +13.3% | 0.268 | +10.0% | 0.574 | +1.7% | -35% | 32 (25) |
+| nw_renewal | 0.494 | +42.3% | 0.286 | +31.2% | 0.578 | +5.1% | 34% | 62 (42) |
+| ALL | 0.431 | +22.0% | 0.273 | +17.1% | 0.551 | +2.8% | 13% | 181 (262) |
 
 ## Changes applied by the controller
 
-22 applied — neutral: 9, beneficial: 11, harmful: 2
+21 applied — neutral: 8, beneficial: 11, harmful: 2
 
 - ks_cancel v2 (controller_auto) dims=['caller_id'] engageΔ=+0.000 didΔ=+0.006 → **neutral**
 - nw_renewal v2 (controller_auto) dims=['caller_id'] engageΔ=+0.000 didΔ=+0.006 → **neutral**
@@ -31,10 +31,9 @@
 - nw_renewal v10 (controller_approved) dims=['voice'] engageΔ=+0.030 didΔ=+0.000 → **beneficial**
 - nw_kyc v4 (controller_approved) dims=['welcome_message', 'caller_id'] engageΔ=+0.032 didΔ=+0.184 → **beneficial**
 - nw_kyc v5 (controller_approved) dims=['caller_id'] engageΔ=+0.000 didΔ=+0.008 → **neutral**
-- ks_cancel v9 (controller_approved) dims=['welcome_message', 'voice'] engageΔ=+0.094 didΔ=+0.000 → **beneficial**
+- ks_cancel v9 (controller_approved) dims=['welcome_message', 'voice'] engageΔ=+0.080 didΔ=+0.000 → **beneficial**
 - ks_cancel v10 (controller_approved) dims=['voice'] engageΔ=+0.000 didΔ=+0.000 → **neutral**
 - nw_kyc v6 (controller_approved) dims=['voice'] engageΔ=+0.028 didΔ=+0.000 → **beneficial**
-- nw_renewal v11 (controller_auto) dims=['caller_id'] engageΔ=+0.000 didΔ=-0.000 → **neutral**
 
 ## Governance
 
@@ -50,7 +49,7 @@
     "approver declined (judgement call)": 3
   },
   "applied_via_approval": 11,
-  "auto_applied": 11,
+  "auto_applied": 10,
   "auto_apply_rejected": 0,
   "apply_conflicts": 1,
   "lapsed": 0,
@@ -110,7 +109,7 @@
     "2": 0.252,
     "3": 0.254,
     "4": 0.249,
-    "5": 0.171,
+    "5": 0.154,
     "6": 0.0,
     "7": 0.0,
     "8": 0.0
