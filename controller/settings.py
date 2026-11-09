@@ -32,7 +32,8 @@ DECAY_CONFIRMATIONS = 2            # ... on this many consecutive checks ...
 DECAY_CHECK_EVERY_HOURS = 6        # ... spaced this far apart (a real decay persists, noise doesn't)
 DECAY_WINDOW_HOURS = 36            # trailing window (dialling hours count, wall-clock hours of sim time)
 MIN_HOLDOUT_CONN = 120
-STALE_PROMOTION_HOURS = 12         # a promotion not live this long after its decision is re-checked on recent data
+STALE_PROMOTION_HOURS = 12         # a promotion not live this long (and not awaiting an approver) is re-checked ...
+P_RECHECK_WITHDRAW = 0.2           # ... and withdrawn only if the recent window points against it
 SUPERVISOR_LOCK_HOURS = 48         # after a supervisor edits a dimension we leave it alone this long
 
 # Caller ID health

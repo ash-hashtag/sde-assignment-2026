@@ -111,7 +111,8 @@ class Experiments(Module):
             self.s.decide(ctx.now, ctx.wf, "experiment_live", f"{exp['id']} {exp['phase']} allocation live: "
                           f"{exp['target']}", ref=exp["id"])
         if not live:
-            if exp["phase"] == "exploit" and ctx.now - exp["promoted_decision"] >= S.STALE_PROMOTION_HOURS * 60:
+            if exp["phase"] == "exploit" and ctx.now - exp["promoted_decision"] >= S.STALE_PROMOTION_HOURS * 60 \
+                    and not self._awaiting_approval(ctx, exp):
                 self._recheck_promotion(ctx, exp, cur)
             return self._intent(ctx, exp, cur)
         if exp["phase"] == "explore":
@@ -181,15 +182,25 @@ class Experiments(Module):
         elif ctx.now - exp["live_since"] > S.MAX_EXPLORE_DAYS * 1440:
             self._close(ctx, exp, counts, "no arm reached the promotion bar in time; keeping the incumbent", res)
 
+    def _awaiting_approval(self, ctx: WorkflowCtx, exp: dict) -> bool:
+        """A request carrying this experiment's change is with the approver. Waiting overnight is normal governance,
+        not staleness: re-judging then withdrew real winners hours before the approver even looked."""
+        return bool(self.s.q1("SELECT COUNT(*) FROM proposals WHERE wf=? AND status IN "
+                              "('submitting','pending','approved','applying') AND intents LIKE ?",
+                              (ctx.wf, f'%"ref": "{exp["id"]}"%')))
+
     def _recheck_promotion(self, ctx: WorkflowCtx, exp: dict, cur: dict):
-        """The decision is old (the request was stale, rejected or slow): does the winner still win recently?"""
+        """The decision is old and no request for it is pending (it was rejected, expired or went stale): before asking
+        again, does the winner still win recently? The trailing window holds a fraction of the evidence the promotion
+        rested on, so failing to re-confirm is not evidence of decay; only a window that points the other way
+        (P(beats) <= P_RECHECK_WITHDRAW) withdraws it."""
         w, h = exp["winner"], exp["holdout"]
         recent = self._arm_counts(ctx, exp["dim"], ctx.now - S.DECAY_WINDOW_HOURS * 60, arms=[w, h])
         if any(c[1] < S.MIN_HOLDOUT_CONN for c in recent.values()):
             exp["promoted_decision"] = ctx.now   # not enough recent data to say; look again later
             return
         rr = compare_arms(recent, h)
-        if rr[w]["p_beats_incumbent"] >= 0.6:
+        if rr[w]["p_beats_incumbent"] > S.P_RECHECK_WITHDRAW:
             exp["promoted_decision"] = ctx.now
             exp["evidence"] = {**exp["evidence"], w: {**exp["evidence"][w], "recheck": rr[w]}}
             return
