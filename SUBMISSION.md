@@ -273,7 +273,19 @@ approver at 11:45, applied D5 12:00.
 
 25 changes applied: 16 beneficial, 9 neutral, **0 harmful**. Prompt incident: MTTR 90 min, fixed by an approved controller change; hallucinated calls 174 vs 416 for the no-op baseline. Flagged caller ID: 5.6% of the flag day's dials, 0% after. Decaying W3: 80% of its population through D4, 20% on D5 (rollback applied 12:00), 0% after. Governance: 14 requests, 13 approved, 1 judgement-call rejection, 0 expired, 0 lapsed, 0 apply conflicts; 12 auto-applies. Credits: 4.
 
-**Run-to-run variation.** The simulator has one random stream, and the controller's tick timing varies with wall-clock speed, so any change in what the controller does changes every later draw. Even re-running the *same* code gives different numbers. Across the last eight versions of this controller, public_01 landed between +12.5% and +16.3% and public_02 between +24.6% and +31.4%. Treat ±3 points as noise when comparing.
+**Run-to-run variation.** The simulator has one random stream, and the controller's tick timing varies with wall-clock speed, so any change in what the controller does changes every later draw. Even re-running the *same* code can give different numbers. Across the last eight versions of this controller, public_01 landed between +12.5% and +16.3% and public_02 between +24.6% and +31.4%. Treat ±3 points as noise when comparing.
+
+**Ablation: what each lever is worth** (`scripts/ablation.sh <scenario> <module>` runs with one module switched off via `CONTROLLER_MODULES`; reports in `reports/ablation/`; single runs, so ±3 points of noise):
+
+| switched off | public_01 conclusions Δ | pickup Δ | engagement Δ | public_02 conclusions Δ | hallucinated calls (all wfs) |
+|---|---|---|---|---|---|
+| nothing (full controller) | +15.6% | +11.9% | +2.0% | +28.9% | 174 |
+| caller-ID health | **+5.3%** | +1.6% | +2.8% | **+3.8%** | 132 |
+| experiments | +12.9% | +11.2% | +0.3% | +28.1% | 172 |
+| call time | +12.1% | +6.6% | +4.2% | +25.5% | 195 |
+| incident response | +15.6% | +11.9% | +2.0% | +26.9% | **558** (baseline 416) |
+
+Caller ID is most of the lift. Call time adds ~3 points of conclusions through pickup. Experiments add ~2 points of engagement, with a gain on the conclusion rate within noise at dev volume. Incident response barely moves conclusions, and isn't meant to: switched off, the supervisor's P2 runs to the end and hallucinated calls are 3× higher. That's the compliance lever. The no-experiments run had one harmful change, an approval-only caller-ID rebalance applied on day-old evidence (§13 weakness 6).
 
 **Interpretation.**
 - **Where the lift comes from:** mostly pickup, via caller-ID load spreading and probing. nw_kyc dialled everything from one number, so it gains the most (+18–20% pickup). Pickup lifts the business outcome directly, because more connects means more conclusions within the same cadence. Hallucinated *calls* rise slightly on public_01 because there are more connected calls, not more per call.

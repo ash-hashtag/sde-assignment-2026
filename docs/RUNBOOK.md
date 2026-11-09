@@ -9,9 +9,14 @@ run, debug and extend it.
 ./run.sh http://127.0.0.1:8700                         # creates .venv on first run; state in state/controller.db
 CONTROLLER_DB=state/x.db ./run.sh http://...           # another store
 scripts/run_scenario.sh scenarios/public_02_incidents.yaml 8702   # sim + controller + grade, end to end
-scripts/crash_test.sh scenarios/public_02_incidents.yaml 4 8790   # kill/restart test with verification
+scripts/crash_test.sh scenarios/public_02_incidents.yaml 6 8790   # kill/restart test (crash points + SIGKILLs), verified
+scripts/ablation.sh scenarios/public_01_dev.yaml did 8721         # one module off: what is that lever worth?
+python tests/scenarios/make_variants.py                         # rebuild the hidden-like test scenarios
 .venv/bin/python -m pytest -q tests                    # unit + contract tests (in-process simulator)
 ```
+
+`CONTROLLER_MODULES=incidents,did` (comma list; default all four) runs a subset of modules. Use it for ablations, or to
+switch a misbehaving lever off without a deploy: the switched-off module proposes nothing and leaves its dimension as is.
 
 Restarting is always safe: `./run.sh` against the same simulator resumes from the store. A store that belongs to a
 different simulator world (other scenario, or time went backwards) is renamed `*.old-<ts>` and a fresh one starts.
