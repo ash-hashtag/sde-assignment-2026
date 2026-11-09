@@ -10,7 +10,7 @@
 - **public_01: +15.6% conclusions vs baseline (pickup +11.9%, engagement +2.0%); public_02: +28.9% (pickup +22.4%, engagement +3.4%)**, with **0 harmful changes** in both. The flagged caller ID is out of rotation the same day. The supervisor's bad prompt fails our validation 15 minutes after it ships and is reverted through an approval with that evidence (**MTTR 90 min**, mostly approver latency). The decaying welcome message is promoted, then rolled back by its holdout.
 - **Hidden-like variants** I built to test on truth the controller was never tuned on (`tests/scenarios/`): **+21.7% and +27.7%**. They found three bugs, all fixed (§11). The remaining "harmful" verdicts are the cost of exploration and one safety revert that I'd make again.
 - Crash safety is demonstrated: 8 injected crash points (each right after an unrecorded side effect) plus random SIGKILLs. There are no double-applies, no lost approvals, and every event is counted exactly once (`reports/crash_test.log`).
-- **Load (public_03, 12 workflows, ~650k dials/day): +19.5% conclusions, 0 harmful of 64 changes.** The controller spends ~82 s of CPU per simulated day (ingest + decide) and 216 s wall per simulated day including the simulator's own generation. Peak RSS is 459 MB.
+- **Load (public_03, 12 workflows, ~650k dials/day): +21.0% conclusions, 0 harmful of 66 changes.** The controller spends ~40 s of CPU per simulated day (ingest + decide; 82 s on a busier machine earlier) and 64 s wall per simulated day including the simulator's own generation. Peak RSS is 467 MB.
 - **Cut:** per-person call time, cross-tenant fairness, a UI, and prompt optimisation. Prompts are only ever *reverted* to a known-good version for safety, never tuned.
 
 ## 1. Assumptions
@@ -63,7 +63,7 @@
 ### 03 — Platform/SRE (Kabir)
 - **Accepted:** kill/restart is demonstrated, not promised (`scripts/crash_test.sh`). There are idempotency keys everywhere and every side effect is written ahead. There is no new stateful infrastructure: an embedded SQLite file, with a schema that ports to the Postgres he already runs. Loop health is available without reading logs (`controller health`, metrics table). Alerts carry a severity, and only `page` ones should page.
 - **Pushed back:** the "<10 wall-minutes per load day" target bundles the simulator's own generation time, which we don't control. I report both separately (§8).
-- **Reply:** "Kabir — kill/restart test is in the repo: 8 injected crash points right after unrecorded side effects, plus random SIGKILLs, with checks for double-apply, lost approvals and exactly-once ingestion. No new infra: state is one SQLite file per controller, same schema as Postgres if you'd rather host it. On the load scenario a simulated day takes 216 s wall including the simulator (82 s of it is us), at 459 MB. First to break at 10× is the in-memory feature-join map, then decide time; both fixes are in §8. Only `severity: page` alerts should wake you, and each one names the workflow and what to look at."
+- **Reply:** "Kabir — kill/restart test is in the repo: 8 injected crash points right after unrecorded side effects, plus random SIGKILLs, with checks for double-apply, lost approvals and exactly-once ingestion. No new infra: state is one SQLite file per controller, same schema as Postgres if you'd rather host it. On the load scenario a simulated day takes 64–216 s wall including the simulator, depending on the box (40–82 s of it is us), at ~470 MB. First to break at 10× is the in-memory feature-join map, then decide time; both fixes are in §8. Only `severity: page` alerts should wake you, and each one names the workflow and what to look at."
 
 ### 04 — Kestrel Ops supervisor (Anita)
 - **Accepted:** her edits are never undone silently. A supervisor edit locks that dimension for 48h. The one exception was her P2 script: it failed validation against her own company's approval bar (0.935 vs 0.97) within 15 minutes of shipping. It was reverted through an approval request that says *"reverses a supervisor change made at D3 11:30"*, with the evidence attached, so she sees it before it happens. At most 2 requests a day and none before 11:00 (voluntary, stricter than policy's 4 from 10:00), with incidents exempt from the 11:00 rule. Changes on a running campaign that customers hear go to her for approval even though policy would let us auto-apply them. One screen: `controller view --wf ks_cancel`. A "strict script" fix that kills engagement is caught: after any prompt fix the controller checks engagement against the pre-incident prompt, and it prefers prompts with production history over untested ones.
@@ -190,19 +190,21 @@ Measured on `public_03_load` (12 workflows, 4,500 dials/hour each; 7 days of his
 
 | metric | value |
 |---|---|
-| history catch-up (5.54M events, no per-call log) | 49.6 s, **112k events/s** |
-| controller-era ingest (4.20M events, with per-call audit log) | 173 s, **24k events/s** (includes downloading chunks from the simulator) |
-| decide time per 15-min tick, 12 workflows | avg **0.70 s**, peak 9.7 s (the one-off history fits on the first tick) |
-| controller CPU per simulated day (ingest + decide) | **~82 s** |
-| wall per simulated day, simulator included | **216 s** (SRE's bar: 600 s) |
-| end-to-end decision lag | one tick: events from a 15-min tick are ingested and acted on before the next advance (~1.4 s wall) |
-| peak RSS | **459 MB** (1.68M persons in the feature-join map) |
-| store size | 740 MB (of which the 3.24M-row per-call audit log is most) |
-| results | +19.5% conclusions, pickup +10.7%, engagement +5.9%, 0 harmful, 0 expired, 0 lapsed |
+| history catch-up (5.54M events, no per-call log) | 41.2 s, **134k events/s** |
+| controller-era ingest (4.20M events, with per-call audit log) | 64.8 s, **65k events/s** (includes downloading chunks from the simulator) |
+| decide time per 15-min tick, 12 workflows | avg **0.50 s**, peak 0.82 s |
+| controller CPU per simulated day (ingest + decide) | **~40 s** |
+| wall per simulated day, simulator included | **64 s** (SRE's bar: 600 s) |
+| end-to-end decision lag | one tick: events from a 15-min tick are ingested and acted on before the next advance (~0.74 s wall) |
+| peak RSS | **467 MB** (1.68M persons in the feature-join map) |
+| store size | 745 MB (of which the 3.24M-row per-call audit log is most) |
+| results | +21.0% conclusions, pickup +11.5%, engagement +6.3%, 0 harmful of 66 changes, 0 expired, 0 lapsed |
+
+Re-measured on 9 Nov with the final code (`python -m controller health` plus the `metrics` table). The 7 Nov measurement of the earlier code gave 82 s CPU and 216 s wall per simulated day, a 9.7 s peak tick, and 24k events/s ingest. The changes since then don't touch the ingest or decide hot paths (`agg_pick` gained a key column, which makes it slightly bigger), so the gap is the machine's load during that run, not an optimisation. Plan capacity on the slower figures.
 
 **What breaks first at 10×** (6.5M dials/day, ~120 workflows):
 1. **Memory of the person → features join map.** It grows with every person ever seen (~270 bytes each in a Python dict): 17M persons ≈ 4.5 GB on an 8 GB box. Fix: key it by the numeric part of `person_id` in a numpy array (1 byte per person), or evict people outside an active cadence and join in SQL for the rare late call.
-2. **Decide time.** It is linear in workflows: ~0.06 s per workflow per tick, so 120 workflows ≈ 7 s per tick ≈ 7.5 min per simulated day. That's inside 10 min, but with no headroom. Fix: shard (below), and keep the hot windows as in-memory incremental counters instead of re-aggregating SQL every tick.
+2. **Decide time.** It is linear in workflows: 0.04–0.06 s per workflow per tick, so 120 workflows ≈ 5–7 s per tick ≈ 5–7.5 min per simulated day. That's inside 10 min, but with little headroom. Fix: shard (below), and keep the hot windows as in-memory incremental counters instead of re-aggregating SQL every tick.
 3. **The per-call audit log.** ~32M rows/day, ~7 GB/day in SQLite. Fix: write it to day-partitioned columnar files (or a partitioned Postgres table) with the retention Compliance needs. The controller doesn't need it to decide (`--no-call-log` turns it off).
 4. **One SQLite writer.** Ingest and decisions share a single writer. Fine per shard; not for the whole platform in one file.
 
